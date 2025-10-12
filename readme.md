@@ -19,9 +19,13 @@
 ```yaml
 top.kloping.ai.mcp:
   servers:
+    # 自定义 mcp server名字
     weather-service:
+      # 服务 地址
       server: https://dashscope.aliyuncs.com
+      # 接入点
       endpoint: /api/v1/mcps/WebSearch/sse
+      # 密钥
       token: sk-xxx
 ```
 
