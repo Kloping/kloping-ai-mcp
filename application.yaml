@@ -1,0 +1,8 @@
+top.kloping.ai.mcp:
+  servers:
+    weather-service:
+      type: sse
+      #=配置
+      server: https://dashscope.aliyuncs.com
+      endpoint: /api/v1/mcps/WebSearch/sse
+      token: sk-xxx
