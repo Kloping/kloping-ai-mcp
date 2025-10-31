@@ -75,7 +75,11 @@ public class McpClient {
                 .get().build();
         Response response = client.newCall(request).execute();
         if (!response.isSuccessful()) {
-            log.error(response.body().string());
+            try {
+                log.error(response.body() != null ? response.body().string() : "response body is null");
+            } finally {
+                response.close();
+            }
             return;
         }
         BufferedReader bufferedReader = null;
@@ -101,6 +105,10 @@ public class McpClient {
                 log.error(e.getMessage(), e);
                 break;
             }
+            if (kv.length < 2) {
+                log.debug("skip malformed sse line: {}", (Object) kv);
+                continue;
+            }
             String type = kv[0];
             String content = kv[1];
             if (type.equals("event")) event = content;
@@ -116,6 +124,7 @@ public class McpClient {
             }
         }
         if (bufferedReader != null) bufferedReader.close();
+        response.close();
         _over = true;
         cdl = new CountDownLatch(1);
         if (reconnectType == ReconnectType.RECONNECT_USE) {
@@ -219,7 +228,8 @@ public class McpClient {
                 cdl.countDown();
             });
             doReqBody(JSON.toJSONString(request));
-            cdl.await(heartbeat, TimeUnit.SECONDS);
+            long waitSeconds = heartbeat > 0 ? heartbeat : 30L;
+            cdl.await(waitSeconds, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
@@ -264,7 +274,9 @@ public class McpClient {
         log.debug("mcp client {} send: {}", clientName, reqBody);
         Request request = new Request.Builder().url(server + _endpoint)
                 .addHeader("Authorization", "Bearer " + token)
-                .post(RequestBody.create(MediaType.parse("application/json"), reqBody)).build();
-        client.newCall(request).execute();
+                .post(RequestBody.create(reqBody, MediaType.get("application/json"))).build();
+        try (Response response = client.newCall(request).execute()) {
+            // ensure the response is closed to avoid leaks
+        }
     }
 }

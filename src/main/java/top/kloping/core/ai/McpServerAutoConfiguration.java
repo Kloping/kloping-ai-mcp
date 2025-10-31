@@ -2,9 +2,10 @@ package top.kloping.core.ai;
 
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
+import org.springframework.lang.NonNull;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +27,7 @@ import java.util.concurrent.Executors;
 @Configuration
 @Slf4j
 @EnableConfigurationProperties(McpServersConfig.class)
+@ConditionalOnClass(ToolCallback.class)
 public class McpServerAutoConfiguration {
 
     public static final Executor EXECUTOR_SERVICE = Executors.newFixedThreadPool(10);
@@ -57,7 +59,7 @@ public class McpServerAutoConfiguration {
                 log.info("McpClient '{}' Initialization successful.", k);
                 client.getTool().forEach((name, tool) -> {
                     toolCallbacks.put(name, new ToolCallback() {
-                        @NotNull
+                        @NonNull
                         @Override
                         public ToolDefinition getToolDefinition() {
                             return ToolDefinition.builder()
@@ -66,9 +68,9 @@ public class McpServerAutoConfiguration {
                                     .build();
                         }
 
-                        @NotNull
+                        @NonNull
                         @Override
-                        public String call(@NotNull String toolInput) {
+                        public String call(@NonNull String toolInput) {
                             ToolCallRequest.Params toolCall = new ToolCallRequest.Params();
                             toolCall.setName(name).setArguments(JSON.parseObject(toolInput));
                             return client.toolCall(toolCall);
