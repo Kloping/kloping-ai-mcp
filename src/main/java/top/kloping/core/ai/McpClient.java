@@ -40,10 +40,23 @@ public class McpClient {
         this.server = properties.getServer();
         this.endpoint = properties.getEndpoint();
         this.token = properties.getToken();
-        this.clientName = properties.getClientName() != null ? properties.getClientName() : this.clientName;
-        this.clientVersion = properties.getClientVersion() != null ? properties.getClientVersion() : this.clientVersion;
-        this.protocolVersion = properties.getProtocolVersion() != null ? properties.getProtocolVersion() : this.protocolVersion;
+
+        this.clientName = properties.getClientName();
+        this.clientVersion = properties.getClientVersion();
+        this.protocolVersion = properties.getProtocolVersion();
         this.heartbeat = properties.getHeartbeat();
+        // timeout set
+        this.connectTimeout = properties.getConnectTimeout();
+        this.readTimeout = properties.getReadTimeout();
+        this.writeTimeout = properties.getWriteTimeout();
+        this.callTimeout = properties.getCallTimeout();
+
+        OK_HTTP_CLIENT = new OkHttpClient.Builder()
+                .readTimeout(readTimeout, TimeUnit.SECONDS)
+                .connectTimeout(connectTimeout, TimeUnit.SECONDS)
+                .writeTimeout(writeTimeout, TimeUnit.SECONDS)
+                .callTimeout(callTimeout, TimeUnit.SECONDS)
+                .build();
     }
 
     private ReconnectType reconnectType = ReconnectType.RECONNECT_USE;
@@ -52,17 +65,18 @@ public class McpClient {
     private String endpoint;
     private String token;
 
-    private String clientName = "mcp-client";
-    private String clientVersion = "0.1.0";
-    private String protocolVersion = "2025-05-05";
+    private String clientName;
+    private String clientVersion;
+    private String protocolVersion;
+
     private int heartbeat;
 
-    final OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .callTimeout(60, TimeUnit.SECONDS)
-            .build();
+    private final Integer readTimeout;
+    private final Integer connectTimeout;
+    private final Integer writeTimeout;
+    private final Integer callTimeout;
+
+    final OkHttpClient OK_HTTP_CLIENT;
 
     private CountDownLatch cdl = new CountDownLatch(1);
 
@@ -73,7 +87,7 @@ public class McpClient {
                 .header("Accept", "text/event-stream")
                 .addHeader("Connection", "keep-alive")
                 .get().build();
-        Response response = client.newCall(request).execute();
+        Response response = OK_HTTP_CLIENT.newCall(request).execute();
         if (!response.isSuccessful()) {
             try {
                 log.error(response.body() != null ? response.body().string() : "response body is null");
@@ -93,11 +107,11 @@ public class McpClient {
             try {
                 String line = bufferedReader.readLine();
                 if (line == null) {
-                    log.warn("mcp readline is null break!");
+                    log.warn("mcp [{}] readline is null break!", clientName);
                     break;
                 }
                 if (line.isEmpty()) continue;
-                log.debug("mcp client {} recv: {}", clientName, line);
+                log.debug("mcp client [{}] recv: {}", clientName, line);
                 kv = line.split(":", 2);
             } catch (SocketTimeoutException e) {
                 break;
@@ -128,9 +142,9 @@ public class McpClient {
         _over = true;
         cdl = new CountDownLatch(1);
         if (reconnectType == ReconnectType.RECONNECT_USE) {
-            log.warn("mcp client {} over,when call before reconnect.", clientName);
+            log.warn("mcp client [{}] over,when call before reconnect.", clientName);
         } else if (reconnectType == ReconnectType.RECONNECT_NOW) {
-            log.warn("mcp client {} over,delay 5s reconnect.", clientName);
+            log.warn("mcp client [{}] over,delay 5s reconnect.", clientName);
             Thread.sleep(5000);
             initialize();
         }
@@ -270,13 +284,14 @@ public class McpClient {
 
     public static final Executor executor = Executors.newSingleThreadExecutor();
 
-    private void doReqBody(String reqBody) throws IOException {
-        log.debug("mcp client {} send: {}", clientName, reqBody);
+    private Response doReqBody(String reqBody) throws IOException {
+        log.debug("mcp client [{}] send: {}", clientName, reqBody);
         Request request = new Request.Builder().url(server + _endpoint)
                 .addHeader("Authorization", "Bearer " + token)
                 .post(RequestBody.create(reqBody, MediaType.get("application/json"))).build();
-        try (Response response = client.newCall(request).execute()) {
+        try (Response response = OK_HTTP_CLIENT.newCall(request).execute()) {
             // ensure the response is closed to avoid leaks
+            return response;
         }
     }
 }
