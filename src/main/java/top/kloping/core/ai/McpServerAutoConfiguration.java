@@ -2,13 +2,13 @@ package top.kloping.core.ai;
 
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.lang.NonNull;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import top.kloping.core.ai.dto.ToolCallRequest;
 
 import java.util.HashMap;
@@ -36,8 +36,8 @@ public class McpServerAutoConfiguration {
     public McpBean mcpToolCallbacks(McpServersConfig config) {
         McpBean mcpBean = new McpBean();
         CountDownLatch cdl = new CountDownLatch(config.getServers().size());
-        EXECUTOR_SERVICE.execute(() -> {
-            config.getServers().forEach((k, v) -> {
+        config.getServers().forEach((k, v) -> {
+            EXECUTOR_SERVICE.execute(() -> {
                 McpBean.McpOne mcpOne = new McpBean.McpOne();
                 mcpOne.setName(k);
                 Map<String, ToolCallback> toolCallbacks = new HashMap<>();
@@ -57,7 +57,7 @@ public class McpServerAutoConfiguration {
                     log.error(e.getMessage(), e);
                 }
                 log.info("McpClient '{}' Initialization successful.", k);
-                client.getTool().forEach((name, tool) -> {
+                client.getToolname2list().forEach((name, tool) -> {
                     toolCallbacks.put(name, new ToolCallback() {
                         @NonNull
                         @Override

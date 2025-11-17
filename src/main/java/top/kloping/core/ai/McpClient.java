@@ -45,7 +45,7 @@ public class McpClient {
     private static final String METHOD_PING = "ping";
     private static final String METHOD_INITIALIZE = "initialize";
     private static final String METHOD_INITIALIZED = "notifications/initialized";
-    private static final long RECONNECT_DELAY_MS = 5000L;
+    private static final long RECONNECT_DELAY_MS = 3000L;
 
     public enum ReconnectType {
         RECONNECT_USE,
@@ -119,6 +119,7 @@ public class McpClient {
 
     public void initialize() throws IOException, InterruptedException {
         _id.set(0);
+        initializing = true;
         Request request = new Request.Builder().url(server + endpoint)
                 .header(HEADER_AUTHORIZATION, AUTH_BEARER + token)
                 .header(HEADER_ACCEPT, ACCEPT_SSE)
@@ -216,11 +217,13 @@ public class McpClient {
             log.warn("McpClient[{}] connection closed, will reconnect on next call", clientName);
         } else if (reconnectType == ReconnectType.RECONNECT_NOW) {
             log.warn("McpClient[{}] connection closed, reconnecting in {}ms", clientName, RECONNECT_DELAY_MS);
+            initializing = true;
             Thread.sleep(RECONNECT_DELAY_MS);
             initialize();
         }
     }
 
+    private volatile boolean initializing = false;
     private volatile boolean _over = false;
     private final AtomicInteger _id = new AtomicInteger(0);
     private volatile String _endpoint;
@@ -283,12 +286,14 @@ public class McpClient {
                 }
             }
 
+            log.info("McpClient[{}] tool/call list analyse success.", clientName);
             // 标记初始化完成
             _over = false;
             // 释放等待的线程
             isAliveCdl.countDown();
             // 启动心跳
             startHeartbeat();
+            initializing = false;
         } else {
             // 工具调用响应
             ToolCallResponse callback = evetId2handler.get(id);
@@ -329,11 +334,11 @@ public class McpClient {
     }
 
     private final Map<Integer, ToolCallResponse> evetId2handler = new ConcurrentHashMap<>();
-    private final Map<String, ToolListResponse.Tool> tool = new ConcurrentHashMap<>();
+    private final Map<String, ToolListResponse.Tool> toolname2list = new ConcurrentHashMap<>();
 
     private void analyseMcpServerTools(ToolListResponse.Tool tool) {
         if (tool != null && tool.getName() != null) {
-            this.tool.put(tool.getName(), tool);
+            this.toolname2list.put(tool.getName(), tool);
         }
     }
 
@@ -341,7 +346,7 @@ public class McpClient {
         // 检查连接状态，如果已断开则尝试重新连接
         if (_over) {
             log.info("McpClient[{}] connection is closed, attempting to reconnect", clientName);
-            EXECUTOR_SERVICE.execute(() -> {
+            if (!initializing) EXECUTOR_SERVICE.execute(() -> {
                 try {
                     initialize();
                 } catch (Exception e) {
@@ -406,7 +411,7 @@ public class McpClient {
 
     public List<RequestTool> getRequestTools() {
         List<RequestTool> requestTools = new ArrayList<>();
-        tool.forEach((k, v) -> {
+        toolname2list.forEach((k, v) -> {
             if (v != null) {
                 RequestTool requestTool = new RequestTool();
                 RequestTool.Function function = new RequestTool.Function();
@@ -457,9 +462,14 @@ public class McpClient {
         return t;
     });
 
+    /**
+     * @param reqBody
+     * @return
+     * @throws IOException
+     */
     private Response doReqBody(String reqBody) throws IOException {
         if (_endpoint == null) {
-            throw new IOException("McpClientendpoint not initialized");
+            throw new IOException("McpClient endpoint not initialized");
         }
 
         log.debug("McpClient[{}] send: {}", clientName, reqBody);
@@ -477,10 +487,6 @@ public class McpClient {
             log.error("McpClient[{}] IO error during request", clientName, e);
             throw e;
         }
-    }
-
-
-    private void onRecvId(Integer id, String data) {
     }
 
     /**
@@ -509,7 +515,7 @@ public class McpClient {
 
         // 清理回调
         evetId2handler.clear();
-        tool.clear();
+        toolname2list.clear();
 
         log.info("McpClient[{}] closed", clientName);
     }

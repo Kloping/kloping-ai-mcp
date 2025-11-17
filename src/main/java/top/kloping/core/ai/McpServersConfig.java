@@ -38,7 +38,7 @@ public class McpServersConfig {
          * 保持链接 如果掉线是否立刻重连
          */
         private Boolean online = false;
-        private Integer heartbeat = 5;
+        private Integer heartbeat = 26;
         private String clientName = "mcp-client";
         private String clientVersion = "0.1.0";
         private String protocolVersion = LATEST_PROTOCOL_VERSION;
