@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @Data
 @Accessors(chain = true)
-public class McpClient {
+public class McpClient{
     private static final String TYPE_EVENT = "event";
     private static final String TYPE_DATA = "data";
     private static final String EVENT_ENDPOINT = "endpoint";
@@ -129,7 +129,7 @@ public class McpClient {
         try (Response response = EVENT_STREAM_HTTP_CLIENT.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String errorMsg = response.body() != null ? response.body().string() : "response body is null";
-                log.error("MCP client[{}] initialization failed: {}", clientName, errorMsg);
+                log.error("McpClient[{}] initialization failed: {}", clientName, errorMsg);
                 return;
             }
 
@@ -138,7 +138,7 @@ public class McpClient {
                     new BufferedReader(response.body().charStream()) : null) {
 
                 if (bufferedReader == null) {
-                    log.warn("MCP client [{}] response body is null", clientName);
+                    log.warn("McpClient[{}] response body is null", clientName);
                     return;
                 }
 
@@ -150,26 +150,26 @@ public class McpClient {
                     try {
                         String line = bufferedReader.readLine();
                         if (line == null) {
-                            log.warn("MCP client [{}] readline is null, connection may be closed", clientName);
+                            log.warn("McpClient[{}] readline is null, connection may be closed", clientName);
                             break;
                         }
                         if (line.trim().isEmpty()) continue;
-                        log.debug("MCP client [{}] recv: {}", clientName, line);
+                        log.debug("McpClient[{}] recv: {}", clientName, line);
                         kv = line.split(":", 2);
                     } catch (SocketTimeoutException e) {
-                        log.warn("MCP client [{}] socket timeout", clientName, e);
+                        log.warn("McpClient[{}] socket timeout", clientName, e);
                         break;
                     } catch (java.io.InterruptedIOException e) {
                         // 处理OkHttp的超时异常
-                        log.warn("MCP client [{}] connection timeout or interrupted", clientName, e);
+                        log.warn("McpClient[{}] connection timeout or interrupted", clientName, e);
                         break;
                     } catch (IOException e) {
-                        log.error("MCP client [{}] IO error while reading", clientName, e);
+                        log.error("McpClient[{}] IO error while reading", clientName, e);
                         break;
                     }
 
                     if (kv.length < 2) {
-                        log.debug("MCP client [{}] skip malformed SSE line: {}", clientName, (Object) kv);
+                        log.debug("McpClient[{}] skip malformed SSE line: {}", clientName, (Object) kv);
                         continue;
                     }
 
@@ -189,15 +189,15 @@ public class McpClient {
                             data = null;
                         }
                     } catch (Exception e) {
-                        log.error("MCP client [{}] error processing event", clientName, e);
+                        log.error("McpClient[{}] error processing event", clientName, e);
                     }
                 }
             }
         } catch (java.io.InterruptedIOException e) {
             // 处理OkHttp的超时异常
-            log.warn("MCP client [{}] connection timeout during initialization", clientName, e);
+            log.warn("McpClient[{}] connection timeout during initialization", clientName, e);
         } catch (IOException e) {
-            log.error("MCP client [{}] IO error during initialization", clientName, e);
+            log.error("McpClient[{}] IO error during initialization", clientName, e);
         }
 
         // 标记连接已关闭
@@ -219,9 +219,9 @@ public class McpClient {
 
     private void handleReconnect() throws InterruptedException, IOException {
         if (reconnectType == ReconnectType.RECONNECT_USE) {
-            log.warn("MCP client [{}] connection closed, will reconnect on next call", clientName);
+            log.warn("McpClient[{}] connection closed, will reconnect on next call", clientName);
         } else if (reconnectType == ReconnectType.RECONNECT_NOW) {
-            log.warn("MCP client [{}] connection closed, reconnecting in {}ms", clientName, RECONNECT_DELAY_MS);
+            log.warn("McpClient[{}] connection closed, reconnecting in {}ms", clientName, RECONNECT_DELAY_MS);
             Thread.sleep(RECONNECT_DELAY_MS);
             initialize();
         }
@@ -249,7 +249,7 @@ public class McpClient {
         Integer id = jsonObject.getInteger("id");
 
         if (id == null) {
-            log.warn("MCP client [{}] received message without ID", clientName);
+            log.warn("McpClient[{}] received message without ID", clientName);
             return;
         }
 
@@ -257,7 +257,7 @@ public class McpClient {
             // 初始化响应
             initializeResponse = JSON.parseObject(data, InitializeResponse.class);
             if (initializeResponse == null || initializeResponse.getResult() == null) {
-                log.error("MCP client [{}] invalid initialize response", clientName);
+                log.error("McpClient[{}] invalid initialize response", clientName);
                 return;
             }
 
@@ -276,7 +276,7 @@ public class McpClient {
             // 工具列表响应
             ToolListResponse toolListResponse = JSON.parseObject(data, ToolListResponse.class);
             if (toolListResponse == null || toolListResponse.getResult() == null) {
-                log.error("MCP client [{}] invalid tool list response", clientName);
+                log.error("McpClient[{}] invalid tool list response", clientName);
                 return;
             }
 
@@ -308,8 +308,8 @@ public class McpClient {
             } else {
                 if (heartbeatIds.contains(id)) {
                     heartbeatIds.remove(id);
-                    log.debug("MCP client [{}] heartbeat removed for id={}", clientName, id);
-                } else log.warn("MCP client [{}] received response for unknown request ID: {}", clientName, id);
+                    log.debug("McpClient[{}] heartbeat removed for id={}", clientName, id);
+                } else log.warn("McpClient[{}] received response for unknown request ID: {}", clientName, id);
             }
         }
     }
@@ -326,7 +326,7 @@ public class McpClient {
                         heartbeatIds.offer(id0);
                         doReqBody(JSON.toJSONString(reqPack));
                     } catch (Exception e) {
-                        log.error("MCP client [{}] error sending heartbeat", clientName, e);
+                        log.error("McpClient[{}] error sending heartbeat", clientName, e);
                     }
                 }
             }, heartbeat, heartbeat, TimeUnit.SECONDS);
@@ -345,12 +345,12 @@ public class McpClient {
     public String toolCall(ToolCallRequest.Params params) {
         // 检查连接状态，如果已断开则尝试重新连接
         if (_over) {
-            log.info("MCP client [{}] connection is closed, attempting to reconnect", clientName);
+            log.info("McpClient[{}] connection is closed, attempting to reconnect", clientName);
             EXECUTOR_SERVICE.execute(() -> {
                 try {
                     initialize();
                 } catch (Exception e) {
-                    log.error("MCP client [{}] error reconnecting", clientName, e);
+                    log.error("McpClient[{}] error reconnecting", clientName, e);
                 }
             });
 
@@ -360,7 +360,7 @@ public class McpClient {
                     cdl.await();
                 }
             } catch (InterruptedException e) {
-                log.error("MCP client [{}] interrupted while waiting for reconnect", clientName, e);
+                log.error("McpClient[{}] interrupted while waiting for reconnect", clientName, e);
                 Thread.currentThread().interrupt(); // 恢复中断状态
                 return null;
             }
@@ -371,9 +371,11 @@ public class McpClient {
         AtomicReference<String> toolMessage = new AtomicReference<>();
 
         try {
+            log.info("McpClient[{}] start tool/call: {}", clientName, request);
             CountDownLatch responseCdl = new CountDownLatch(1);
             id2runnable.put(id, (d) -> {
                 try {
+                    log.info("McpClient[{}] finish id({}) tool/call: {}", clientName, id, d);
                     JSONObject jsonObject = JSONObject.parseObject(d);
                     if (jsonObject != null) {
                         jsonObject = jsonObject.getJSONObject("result");
@@ -383,26 +385,25 @@ public class McpClient {
                         }
                     }
                 } catch (Exception e) {
-                    log.error("MCP client [{}] error processing tool response", clientName, e);
+                    log.error("McpClient[{}] error processing tool response", clientName, e);
                 } finally {
                     responseCdl.countDown();
                 }
             });
-
             doReqBody(JSON.toJSONString(request));
             long waitSeconds = (heartbeat > 0 && heartbeat < 30) ? heartbeat : 30L;
             if (!responseCdl.await(waitSeconds, TimeUnit.SECONDS)) {
-                log.warn("MCP client [{}] tool call timeout after {} seconds", clientName, waitSeconds);
+                log.warn("McpClient[{}] tool call timeout after {} seconds", clientName, waitSeconds);
                 id2runnable.remove(id);
                 return null;
             }
         } catch (InterruptedException e) {
-            log.error("MCP client [{}] tool call interrupted", clientName, e);
+            log.error("McpClient[{}] tool call interrupted", clientName, e);
             Thread.currentThread().interrupt(); // 恢复中断状态
             id2runnable.remove(id);
             return null;
         } catch (Exception e) {
-            log.error("MCP client [{}] error during tool call", clientName, e);
+            log.error("McpClient[{}] error during tool call", clientName, e);
             id2runnable.remove(id);
             return null;
         }
@@ -437,7 +438,7 @@ public class McpClient {
 
     private void doEndpoint(String data) throws IOException {
         if (data == null || data.isEmpty()) {
-            log.warn("MCP client [{}] received empty endpoint data", clientName);
+            log.warn("McpClient[{}] received empty endpoint data", clientName);
             return;
         }
 
@@ -465,10 +466,10 @@ public class McpClient {
 
     private Response doReqBody(String reqBody) throws IOException {
         if (_endpoint == null) {
-            throw new IOException("MCP client endpoint not initialized");
+            throw new IOException("McpClientendpoint not initialized");
         }
 
-        log.debug("MCP client [{}] send: {}", clientName, reqBody);
+        log.debug("McpClient[{}] send: {}", clientName, reqBody);
         Request request = new Request.Builder().url(server + _endpoint)
                 .addHeader(HEADER_AUTHORIZATION, AUTH_BEARER + token)
                 .post(RequestBody.create(reqBody, MediaType.get(CONTENT_TYPE_JSON))).build();
@@ -477,10 +478,10 @@ public class McpClient {
             return response;
         } catch (java.io.InterruptedIOException e) {
             // 处理OkHttp的超时异常
-            log.warn("MCP client [{}] request timeout or interrupted", clientName, e);
+            log.warn("McpClient[{}] request timeout or interrupted", clientName, e);
             throw e;
         } catch (IOException e) {
-            log.error("MCP client [{}] IO error during request", clientName, e);
+            log.error("McpClient[{}] IO error during request", clientName, e);
             throw e;
         }
     }
@@ -519,6 +520,6 @@ public class McpClient {
         id2runnable.clear();
         tool.clear();
 
-        log.info("MCP client [{}] closed", clientName);
+        log.info("McpClient[{}] closed", clientName);
     }
 }

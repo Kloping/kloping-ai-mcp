@@ -28,20 +28,25 @@ public class McpServersConfig {
     public static class McpConfig {
         private String type = "sse";
 
+        // 服务地址
         private String server;
+        // 接入点
         private String endpoint;
         private String token;
 
+        /**
+         * 保持链接 如果掉线是否立刻重连
+         */
         private Boolean online = false;
         private Integer heartbeat = 5;
         private String clientName = "mcp-client";
         private String clientVersion = "0.1.0";
         private String protocolVersion = LATEST_PROTOCOL_VERSION;
         // 该工具调用的 时间
-        private Integer readTimeout = 8; //表示无限制
+        private Integer readTimeout = 8;
         private Integer connectTimeout = 20;
         private Integer writeTimeout = 15;
-        private Integer callTimeout = 7; //表示无限制
+        private Integer callTimeout = 7;
     }
 
 
