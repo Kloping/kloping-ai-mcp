@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @Data
 @Accessors(chain = true)
-public class McpClient{
+public class McpClient {
     private static final String TYPE_EVENT = "event";
     private static final String TYPE_DATA = "data";
     private static final String EVENT_ENDPOINT = "endpoint";
@@ -115,8 +115,7 @@ public class McpClient{
     private final ScheduledExecutorService heartbeatScheduler;
 
     // 使用 volatile 和双重检查锁定确保线程安全
-    private volatile CountDownLatch cdl = new CountDownLatch(1);
-    private final Object cdlLock = new Object();
+    private volatile CountDownLatch isAliveCdl = new CountDownLatch(1);
 
     public void initialize() throws IOException, InterruptedException {
         _id.set(0);
@@ -203,16 +202,11 @@ public class McpClient{
         // 标记连接已关闭
         _over = true;
 
-        // 重新初始化 CountDownLatch，使用双重检查锁定确保线程安全
-        synchronized (cdlLock) {
-            if (cdl.getCount() > 0) {
-                // 如果还有等待的线程，先释放它们
-                while (cdl.getCount() > 0) {
-                    cdl.countDown();
-                }
-            }
-            cdl = new CountDownLatch(1);
+        // 如果还有等待的线程，先释放它们
+        while (isAliveCdl.getCount() > 0) {
+            isAliveCdl.countDown();
         }
+        isAliveCdl = new CountDownLatch(1);
         // 处理重连逻辑
         handleReconnect();
     }
@@ -291,20 +285,16 @@ public class McpClient{
 
             // 标记初始化完成
             _over = false;
-
             // 释放等待的线程
-            synchronized (cdlLock) {
-                cdl.countDown();
-            }
-
+            isAliveCdl.countDown();
             // 启动心跳
             startHeartbeat();
         } else {
             // 工具调用响应
-            ToolCallResponse callback = id2runnable.get(id);
+            ToolCallResponse callback = evetId2handler.get(id);
             if (callback != null) {
                 callback.onResponse(data);
-                id2runnable.remove(id);
+                evetId2handler.remove(id);
             } else {
                 if (heartbeatIds.contains(id)) {
                     heartbeatIds.remove(id);
@@ -316,9 +306,14 @@ public class McpClient{
 
     private Queue<Integer> heartbeatIds = new ArrayDeque<>(5);
 
+    private ScheduledFuture<?> scheduledFuture;
+
     private void startHeartbeat() {
         if ((heartbeat > 0) && heartbeatScheduler != null) {
-            heartbeatScheduler.scheduleAtFixedRate(() -> {
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(true);
+            }
+            scheduledFuture = heartbeatScheduler.scheduleAtFixedRate(() -> {
                 if (!_over) {
                     try {
                         int id0 = -1;
@@ -333,7 +328,7 @@ public class McpClient{
         }
     }
 
-    private final Map<Integer, ToolCallResponse> id2runnable = new ConcurrentHashMap<>();
+    private final Map<Integer, ToolCallResponse> evetId2handler = new ConcurrentHashMap<>();
     private final Map<String, ToolListResponse.Tool> tool = new ConcurrentHashMap<>();
 
     private void analyseMcpServerTools(ToolListResponse.Tool tool) {
@@ -356,9 +351,7 @@ public class McpClient{
 
             try {
                 // 等待重新连接完成
-                synchronized (cdlLock) {
-                    cdl.await();
-                }
+                isAliveCdl.await();
             } catch (InterruptedException e) {
                 log.error("McpClient[{}] interrupted while waiting for reconnect", clientName, e);
                 Thread.currentThread().interrupt(); // 恢复中断状态
@@ -373,7 +366,7 @@ public class McpClient{
         try {
             log.info("McpClient[{}] start tool/call: {}", clientName, request);
             CountDownLatch responseCdl = new CountDownLatch(1);
-            id2runnable.put(id, (d) -> {
+            evetId2handler.put(id, (d) -> {
                 try {
                     log.info("McpClient[{}] finish id({}) tool/call: {}", clientName, id, d);
                     JSONObject jsonObject = JSONObject.parseObject(d);
@@ -391,20 +384,20 @@ public class McpClient{
                 }
             });
             doReqBody(JSON.toJSONString(request));
-            long waitSeconds = (heartbeat > 0 && heartbeat < 30) ? heartbeat : 30L;
+            long waitSeconds = readTimeout + callTimeout;
             if (!responseCdl.await(waitSeconds, TimeUnit.SECONDS)) {
                 log.warn("McpClient[{}] tool call timeout after {} seconds", clientName, waitSeconds);
-                id2runnable.remove(id);
+                evetId2handler.remove(id);
                 return null;
             }
         } catch (InterruptedException e) {
             log.error("McpClient[{}] tool call interrupted", clientName, e);
             Thread.currentThread().interrupt(); // 恢复中断状态
-            id2runnable.remove(id);
+            evetId2handler.remove(id);
             return null;
         } catch (Exception e) {
             log.error("McpClient[{}] error during tool call", clientName, e);
-            id2runnable.remove(id);
+            evetId2handler.remove(id);
             return null;
         }
 
@@ -510,14 +503,12 @@ public class McpClient{
         }
 
         // 释放所有等待的线程
-        synchronized (cdlLock) {
-            while (cdl.getCount() > 0) {
-                cdl.countDown();
-            }
+        while (isAliveCdl.getCount() > 0) {
+            isAliveCdl.countDown();
         }
 
         // 清理回调
-        id2runnable.clear();
+        evetId2handler.clear();
         tool.clear();
 
         log.info("McpClient[{}] closed", clientName);

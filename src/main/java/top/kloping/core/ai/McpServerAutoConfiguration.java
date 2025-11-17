@@ -52,7 +52,7 @@ public class McpServerAutoConfiguration {
                     }
                 });
                 try {
-                    client.getCdl().await();
+                    client.getIsAliveCdl().await();
                 } catch (InterruptedException e) {
                     log.error(e.getMessage(), e);
                 }
