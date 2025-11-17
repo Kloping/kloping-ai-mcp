@@ -6,5 +6,6 @@ package top.kloping.core.ai.dto;
  * @since 2025/9/20-11:53
  */
 public interface ToolCallResponse {
+
     void onResponse(String data);
 }

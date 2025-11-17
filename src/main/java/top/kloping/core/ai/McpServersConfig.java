@@ -38,10 +38,10 @@ public class McpServersConfig {
         private String clientVersion = "0.1.0";
         private String protocolVersion = LATEST_PROTOCOL_VERSION;
         // 该工具调用的 时间
-        private Integer readTimeout = 0; //表示无限制
+        private Integer readTimeout = 8; //表示无限制
         private Integer connectTimeout = 20;
         private Integer writeTimeout = 15;
-        private Integer callTimeout = 10;
+        private Integer callTimeout = 7; //表示无限制
     }
 
 
