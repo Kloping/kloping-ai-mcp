@@ -1,5 +1,6 @@
 package top.kloping.core.ai;
 
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,16 @@ public class McpServersConfig {
         return this;
     }
 
+    @PostConstruct
+    public void validate() {
+        for (Map.Entry<String, McpConfig> entry : servers.entrySet()) {
+            McpConfig config = entry.getValue();
+            if (config.getServer() == null || config.getServer().trim().isEmpty()) {
+                throw new IllegalArgumentException("Server URL cannot be empty for " + entry.getKey());
+            }
+        }
+    }
+
     @Data
     public static class McpConfig {
         private String type = "sse";
@@ -31,7 +42,7 @@ public class McpServersConfig {
         // 服务地址
         private String server;
         // 接入点
-        private String endpoint;
+        private String endpoint = "/sse";
         private String token;
 
         /**

@@ -11,7 +11,7 @@ import java.util.Map;
  * @since 2025/9/20-11:53
  */
 public class ToolCallRequest extends McpReqPack<ToolCallRequest.Params> {
-    public ToolCallRequest(Integer id, Params params) {
+    public ToolCallRequest(String id, Params params) {
         super(id, "tools/call", params);
     }
 

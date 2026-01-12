@@ -13,7 +13,7 @@ import java.util.Map;
  * @since 2025/9/20-11:44
  */
 public class ToolListResponse extends McpResPack<ToolListResponse.Result> {
-    public ToolListResponse(String jsonrpc, Integer id, Result result) {
+    public ToolListResponse(String jsonrpc, String id, Result result) {
         super(jsonrpc, id, result);
     }
 

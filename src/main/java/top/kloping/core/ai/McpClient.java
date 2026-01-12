@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -118,7 +117,7 @@ public class McpClient {
     private volatile CountDownLatch isAliveCdl = new CountDownLatch(1);
 
     public void initialize() throws IOException, InterruptedException {
-        _id.set(0);
+        _init_id = getIndexId();
         initializing = true;
         Request request = new Request.Builder().url(server + endpoint)
                 .header(HEADER_AUTHORIZATION, AUTH_BEARER + token)
@@ -225,9 +224,14 @@ public class McpClient {
 
     private volatile boolean initializing = false;
     private volatile boolean _over = false;
-    private final AtomicInteger _id = new AtomicInteger(0);
     private volatile String _endpoint;
     private volatile String _protocol_version;
+
+    private int id = 0;
+
+    public synchronized String getIndexId() {
+        return String.valueOf(id++);
+    }
 
     private void doEvent(String event, String data) throws IOException, InterruptedException {
         if (event.equals(EVENT_ENDPOINT)) {
@@ -239,18 +243,19 @@ public class McpClient {
 
     private InitializeResponse initializeResponse;
 
-    private int _tool_list_id;
+    private String _tool_list_id;
+    private String _init_id;
 
     private void doMessage(String data) throws IOException {
         JSONObject jsonObject = JSONObject.parseObject(data);
-        Integer id = jsonObject.getInteger("id");
+        String id = jsonObject.getString("id");
 
         if (id == null) {
             log.warn("McpClient[{}] received message without ID", clientName);
             return;
         }
 
-        if (id == 0) {
+        if (_init_id.equals(id)) {
             // 初始化响应
             initializeResponse = JSON.parseObject(data, InitializeResponse.class);
             if (initializeResponse == null || initializeResponse.getResult() == null) {
@@ -267,9 +272,9 @@ public class McpClient {
             doReqBody(JSON.toJSONString(new InitializedRequest(null, params)));
 
             // 请求工具列表
-            _tool_list_id = _id.getAndIncrement();
+            _tool_list_id = getIndexId();
             doReqBody(JSON.toJSONString(new ToolListRequest(_tool_list_id, null)));
-        } else if (id == _tool_list_id) {
+        } else if (_tool_list_id.equals(id)) {
             // 工具列表响应
             ToolListResponse toolListResponse = JSON.parseObject(data, ToolListResponse.class);
             if (toolListResponse == null || toolListResponse.getResult() == null) {
@@ -304,12 +309,16 @@ public class McpClient {
                 if (heartbeatIds.contains(id)) {
                     heartbeatIds.remove(id);
                     log.debug("McpClient[{}] heartbeat removed for id={}", clientName, id);
-                } else log.warn("McpClient[{}] received response for unknown request ID: {}", clientName, id);
+                } else {
+                    String method = jsonObject.getString("method");
+                    if (!"ping".equalsIgnoreCase(method))
+                        log.warn("McpClient[{}] received response for unknown request ID: {}", clientName, id);
+                }
             }
         }
     }
 
-    private Queue<Integer> heartbeatIds = new ArrayDeque<>(5);
+    private Queue<String> heartbeatIds = new ArrayDeque<>(5);
 
     private ScheduledFuture<?> scheduledFuture;
 
@@ -321,8 +330,8 @@ public class McpClient {
             scheduledFuture = heartbeatScheduler.scheduleAtFixedRate(() -> {
                 if (!_over) {
                     try {
-                        int id0 = -1;
-                        McpReqPack<Object> reqPack = new McpReqPack<>((id0 = _id.getAndIncrement()), METHOD_PING, new Object());
+                        String id0 = getIndexId();
+                        McpReqPack<Object> reqPack = new McpReqPack<>(id0, METHOD_PING, new Object());
                         heartbeatIds.offer(id0);
                         doReqBody(JSON.toJSONString(reqPack));
                     } catch (Exception e) {
@@ -333,7 +342,7 @@ public class McpClient {
         }
     }
 
-    private final Map<Integer, ToolCallResponse> evetId2handler = new ConcurrentHashMap<>();
+    private final Map<String, ToolCallResponse> evetId2handler = new ConcurrentHashMap<>();
     private final Map<String, ToolListResponse.Tool> toolname2list = new ConcurrentHashMap<>();
 
     private void analyseMcpServerTools(ToolListResponse.Tool tool) {
@@ -364,7 +373,7 @@ public class McpClient {
             }
         }
 
-        int id = _id.getAndIncrement();
+        String id = getIndexId();
         ToolCallRequest request = new ToolCallRequest(id, params);
         AtomicReference<String> toolMessage = new AtomicReference<>();
 
@@ -417,15 +426,12 @@ public class McpClient {
                 RequestTool.Function function = new RequestTool.Function();
                 function.setName(v.getName());
                 function.setDescription(v.getDescription());
-
                 RequestTool.Parameter toolParameter = new RequestTool.Parameter();
                 toolParameter.setType("object");
-
                 if (v.getInputSchema() != null) {
                     toolParameter.setRequired(v.getInputSchema().getRequired());
                     toolParameter.setProperties(v.getInputSchema().getProperties());
                 }
-
                 function.setParameters(toolParameter);
                 requestTool.setFunction(function);
                 requestTools.add(requestTool);
@@ -439,7 +445,6 @@ public class McpClient {
             log.warn("McpClient[{}] received empty endpoint data", clientName);
             return;
         }
-
         _endpoint = data;
 
         InitializeRequest.ClientInfo clientInfo = new InitializeRequest.ClientInfo();
@@ -451,7 +456,7 @@ public class McpClient {
         params.setCapabilities(Map.of());
         params.setProtocolVersion(protocolVersion);
 
-        InitializeRequest initializeRequest = new InitializeRequest(_id.getAndIncrement(), params);
+        InitializeRequest initializeRequest = new InitializeRequest(_init_id, params);
         String reqBody = JSON.toJSONString(initializeRequest);
         doReqBody(reqBody);
     }

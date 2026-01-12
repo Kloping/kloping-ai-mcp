@@ -8,11 +8,11 @@ package top.kloping.core.ai.dto;
  */
 public class InitializeRequest extends McpReqPack<McpReqPack.Params> {
 
-    public InitializeRequest(Integer id, Params params) {
+    public InitializeRequest(String id, Params params) {
         super(id, "initialize", params);
     }
 
     public InitializeRequest() {
-        super(0, "initialize", new Params());
+        super("", "initialize", new Params());
     }
 }

@@ -7,7 +7,7 @@ package top.kloping.core.ai.dto;
  * @since 2025/9/20-11:22
  */
 public class InitializedRequest extends McpReqPack<McpReqPack.Params> {
-    public InitializedRequest(Integer id, Params params) {
+    public InitializedRequest(String id, Params params) {
         super(id, "notifications/initialized", params);
     }
 }

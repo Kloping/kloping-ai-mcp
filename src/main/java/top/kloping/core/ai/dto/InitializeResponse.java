@@ -7,7 +7,7 @@ import lombok.Data;
  * @since 2025/9/20-11:17
  */
 public class InitializeResponse extends McpResPack<InitializeResponse.Result> {
-    public InitializeResponse(String jsonrpc, Integer id, Result result) {
+    public InitializeResponse(String jsonrpc, String id, Result result) {
         super(jsonrpc, id, result);
     }
 

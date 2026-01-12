@@ -6,7 +6,7 @@ package top.kloping.core.ai.dto;
  * @since 2025/9/20-11:24
  */
 public class ToolListRequest extends McpReqPack<McpReqPack.Params> {
-    public ToolListRequest(Integer id, Params params) {
+    public ToolListRequest(String id, Params params) {
         super(id, "tools/list", params);
     }
 }

@@ -10,11 +10,17 @@ import lombok.Data;
 @Data
 public class McpReqPack<T> {
     private final String jsonrpc = "2.0";
-    private Integer id;
+    private String id;
     private String method;
     private T params;
 
     public McpReqPack(Integer id, String method, T params) {
+        this.id = String.valueOf(id);
+        this.method = method;
+        this.params = params;
+    }
+
+    public McpReqPack(String id, String method, T params) {
         this.id = id;
         this.method = method;
         this.params = params;

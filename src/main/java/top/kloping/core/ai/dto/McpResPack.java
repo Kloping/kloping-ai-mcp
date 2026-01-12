@@ -14,10 +14,10 @@ import lombok.Data;
 @Data
 public class McpResPack<T> {
     private String jsonrpc = "2.0";
-    private Integer id;
+    private String id;
     private T result;
 
-    public McpResPack(String jsonrpc, Integer id, T result) {
+    public McpResPack(String jsonrpc, String id, T result) {
         this.jsonrpc = jsonrpc;
         this.id = id;
         this.result = result;
