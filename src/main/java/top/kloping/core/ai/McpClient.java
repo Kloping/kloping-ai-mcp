@@ -313,6 +313,11 @@ public class McpClient {
                     String method = jsonObject.getString("method");
                     if (!"ping".equalsIgnoreCase(method))
                         log.warn("McpClient[{}] received response for unknown request ID: {}", clientName, id);
+                    else{
+                        // this is server send ping
+                        //{"jsonrpc":"2.0","id":"2026-03-26T09:07:03.240492163","result":{}}
+                        doReqBody(String.format("{\"jsonrpc\":\"2.0\",\"id\":\"%s\",\"result\":{}}", id));
+                    }
                 }
             }
         }

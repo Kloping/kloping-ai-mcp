@@ -1,12 +1,16 @@
 top.kloping.ai.mcp:
   servers:
-    weather-service:
-      type: sse
-      #=配置
+    # 自定义 mcp server名字
+    WebSearch:
       server: https://dashscope.aliyuncs.com
       endpoint: /api/v1/mcps/WebSearch/sse
-      token: sk-296e9e18b3534d52a7bdaf0b6141ed9e
-
+      token: sk-xxxxxxx
+      heartbeat: 45
+    WebParser:
+      server: ${top.kloping.ai.mcp.servers.WebSearch.server}
+      endpoint: /api/v1/mcps/WebParser/sse
+      token: ${top.kloping.ai.mcp.servers.WebSearch.token}
+      heartbeat: 45
 logging:
   pattern:
     console: "%clr([%thread]){blue} %clr(%-32.32logger{32}){magenta} %clr(%d{yyyy-MM-dd HH:mm:ss}){red} %clr(%-5p): %msg%n"

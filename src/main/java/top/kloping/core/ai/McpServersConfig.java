@@ -61,7 +61,7 @@ public class McpServersConfig {
     }
 
 
-    public static final String LATEST_PROTOCOL_VERSION = "2024-11-05";
+    public static final String LATEST_PROTOCOL_VERSION = "2025-03-17";
 
     public static final String JSONRPC_VERSION = "2.0";
 }

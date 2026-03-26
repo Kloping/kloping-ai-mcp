@@ -6,7 +6,7 @@
     <groupId>top.kloping.core</groupId>
     <artifactId>kloping-ai-mcp</artifactId>
     <!--根据版本更新-->
-    <version>0.0.1</version>
+    <version>0.0.6</version>
 </dependency>
 
 ```

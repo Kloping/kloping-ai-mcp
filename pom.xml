@@ -6,7 +6,7 @@
 
     <groupId>top.kloping.core</groupId>
     <artifactId>kloping-ai-mcp</artifactId>
-    <version>0.0.5-L</version>
+    <version>0.0.6</version>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -24,7 +24,7 @@
 
     <url>https://github.com/Kloping/kloping-ai-mcp</url>
 
-    <description>适用于springboot中的AI模型及工具调用</description>
+    <description>适用于springboot中的AI模型MCP工具调用</description>
 
     <licenses>
         <license>
@@ -79,7 +79,7 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-mcp</artifactId>
-            <version>1.1.0-M2</version>
+            <version>1.1.3</version>
             <scope>compile</scope>
         </dependency>
 
