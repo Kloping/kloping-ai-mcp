@@ -16,12 +16,26 @@ public class McpServersConfig {
     @Getter
     private Map<String, McpConfig> servers = new HashMap<>();
 
+    /**
+     * 是否并发初始化 MCP 客户端，默认为 true
+     */
+    private Boolean concurrentInit = true;
+
     public McpServersConfig setServers(Map<String, McpConfig> servers) {
         log.info("McpServersConfig set servers!");
         servers.forEach((key, value) -> {
             value.setClientName(key);
         });
         this.servers = servers;
+        return this;
+    }
+
+    public Boolean getConcurrentInit() {
+        return concurrentInit;
+    }
+
+    public McpServersConfig setConcurrentInit(Boolean concurrentInit) {
+        this.concurrentInit = concurrentInit;
         return this;
     }
 

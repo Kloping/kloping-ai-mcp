@@ -6,7 +6,7 @@
     <groupId>top.kloping.core</groupId>
     <artifactId>kloping-ai-mcp</artifactId>
     <!--根据版本更新-->
-    <version>0.0.6</version>
+    <version>0.0.7</version>
 </dependency>
 
 ```
@@ -18,6 +18,7 @@
 
 ```yaml
 top.kloping.ai.mcp:
+  concurrent-init: true  # 默认为 true，设置为 false 则串行初始
   servers:
     # 自定义 mcp server名字
     weather-service:

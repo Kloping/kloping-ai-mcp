@@ -36,57 +36,80 @@ public class McpServerAutoConfiguration {
     public McpBean mcpToolCallbacks(McpServersConfig config) {
         McpBean mcpBean = new McpBean();
         CountDownLatch cdl = new CountDownLatch(config.getServers().size());
-        config.getServers().forEach((k, v) -> {
-            EXECUTOR_SERVICE.execute(() -> {
-                McpBean.McpOne mcpOne = new McpBean.McpOne();
-                mcpOne.setName(k);
-                Map<String, ToolCallback> toolCallbacks = new HashMap<>();
-                McpClient client = new McpClient(v);
-                client.setReconnectType(v.getOnline() ? McpClient.ReconnectType.RECONNECT_NOW : McpClient.ReconnectType.RECONNECT_USE);
+        
+        if (config.getConcurrentInit()) {
+            log.info("McpClients Initialization begins with concurrent init");
+            // 并发初始化
+            config.getServers().forEach((k, v) -> {
                 EXECUTOR_SERVICE.execute(() -> {
-                    try {
-                        log.info("McpClient '{}' Initialization begins.", k);
-                        client.initialize();
-                    } catch (Exception e) {
-                        log.error(e.getMessage(), e);
-                    }
+                    initMcpClient(k, v, mcpBean, cdl);
                 });
-                try {
-                    client.getIsAliveCdl().await();
-                } catch (InterruptedException e) {
-                    log.error(e.getMessage(), e);
-                }
-                log.info("McpClient '{}' Initialization successful.", k);
-                client.getToolname2list().forEach((name, tool) -> {
-                    toolCallbacks.put(name, new ToolCallback() {
-                        @NonNull
-                        @Override
-                        public ToolDefinition getToolDefinition() {
-                            return ToolDefinition.builder()
-                                    .description(tool.getDescription()).name(name)
-                                    .inputSchema(JSON.toJSONString(tool.getInputSchema()))
-                                    .build();
-                        }
-
-                        @NonNull
-                        @Override
-                        public String call(@NonNull String toolInput) {
-                            ToolCallRequest.Params toolCall = new ToolCallRequest.Params();
-                            toolCall.setName(name).setArguments(JSON.parseObject(toolInput));
-                            return client.toolCall(toolCall);
-                        }
-                    });
-                });
-                mcpOne.setToolCallbacks(toolCallbacks);
-                mcpBean.getMcpOnes().put(k, mcpOne);
-                cdl.countDown();
             });
-        });
+        } else {
+            log.info("McpClients Initialization begins with serial init");
+            // 串行初始化
+            config.getServers().forEach((k, v) -> {
+                initMcpClient(k, v, mcpBean, cdl);
+            });
+        }
+        
         try {
             cdl.await();
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
         return mcpBean;
+    }
+
+    private void initMcpClient(String name, McpServersConfig.McpConfig config, McpBean mcpBean, CountDownLatch cdl) {
+        try {
+            McpBean.McpOne mcpOne = new McpBean.McpOne();
+            mcpOne.setName(name);
+            Map<String, ToolCallback> toolCallbacks = new HashMap<>();
+            McpClient client = new McpClient(config);
+            client.setReconnectType(config.getOnline() ? McpClient.ReconnectType.RECONNECT_NOW : McpClient.ReconnectType.RECONNECT_USE);
+            
+            EXECUTOR_SERVICE.execute(() -> {
+                try {
+                    log.info("McpClient '{}' Initialization begins.", name);
+                    client.initialize();
+                } catch (Exception e) {
+                    log.error(e.getMessage(), e);
+                }
+            });
+            
+            try {
+                client.getIsAliveCdl().await();
+            } catch (InterruptedException e) {
+                log.error(e.getMessage(), e);
+            }
+            
+            log.info("McpClient '{}' Initialization successful.", name);
+            client.getToolname2list().forEach((toolName, tool) -> {
+                toolCallbacks.put(toolName, new ToolCallback() {
+                    @NonNull
+                    @Override
+                    public ToolDefinition getToolDefinition() {
+                        return ToolDefinition.builder()
+                                .description(tool.getDescription()).name(toolName)
+                                .inputSchema(JSON.toJSONString(tool.getInputSchema()))
+                                .build();
+                    }
+
+                    @NonNull
+                    @Override
+                    public String call(@NonNull String toolInput) {
+                        ToolCallRequest.Params toolCall = new ToolCallRequest.Params();
+                        toolCall.setName(toolName).setArguments(JSON.parseObject(toolInput));
+                        return client.toolCall(toolCall);
+                    }
+                });
+            });
+            
+            mcpOne.setToolCallbacks(toolCallbacks);
+            mcpBean.getMcpOnes().put(name, mcpOne);
+        } finally {
+            cdl.countDown();
+        }
     }
 }
